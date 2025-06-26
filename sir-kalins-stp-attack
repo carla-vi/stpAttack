@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Move to the script directory
+cd "$(dirname "$0")"
+CDIR=$(pwd)
+
+# Load config (expects to define $ID)
+source ../LOCAL-CONFIG-?.conf
+
+# Define namespace and interface name
+NS="kali${ID}"
+IFACE="${NS}-eth0"
+
+# Check and create the namespace if it doesn't exist
+if ! ip netns list | grep -q "^${NS}$"; then
+    echo "Namespace ${NS} not found, creating..."
+    ./sir-kalins
+else
+    echo "Namespace ${NS} already exists."
+fi
+
+# Verify interface exists inside the namespace
+if ! ip netns exec "${NS}" ip link show "${IFACE}" &>/dev/null; then
+    echo "Interface ${IFACE} not found in ${NS} namespace. Please create it first."
+    exit 1
+fi
+
+echo "Running STP capture inside ${NS} on ${IFACE}..."
+
+# Run the Python sniffer with the interface
+ip netns exec "${NS}" python3 "$CDIR/stp-attack.py" "${IFACE}"
